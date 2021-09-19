@@ -1,3 +1,5 @@
+import time
+from typing import Optional
 import itertools
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,67 +12,28 @@ class Board:
     Any dead cell with three live neighbours becomes a live cell.
     All other live cells die in the next generation. Similarly, all other dead cells stay dead.
     """
-    def __init__(self, n, m):
-        self.n = n
-        self.m = m
-        self.grid = np.zeros(shape=(n, m), dtype=int)
+    def __init__(self):
+        self.n = None
+        self.m = None
+        self.grid = None
         self.counter = itertools.count(0)
         self.i_step = next(self.counter)
         self.fig, self.ax = None, None
 
-    def _create_glider(self, direction='down_right'):
-        glider = np.array([
-                    [0, 1, 0],
-                    [0, 0, 1],
-                    [1, 1, 1],
-                    ])
-        if direction == 'down_right':
-            return glider
-        elif direction == 'up_right':
-            return np.rot90(glider)
-        elif direction == 'down_left':
-            return np.rot90(np.rot90(np.rot90(glider)))
-        elif direction == 'up_left':
-            return np.rot90(np.rot90(glider))
+    def empty_grid_to_file(self, n: int, m: int, name: Optional[str]=None):
+        name = name if name is not None else f"{n}x{m}.input"
+        with open(name, "w") as f:
+            for i in range(n):
+                f.write(" ".join("." for _ in range(m)) + "\n")
     
-    def _create_cross(self):
-        return np.array([
-            [0, 1, 0],
-            [1, 1, 1],
-            [0, 1, 0],
-            ])
-
-    def initialise_mid(self):
-        mid_row = self.n//2
-        mid_col = self.m//2
-        self.grid[mid_row, mid_col] = 1
-        self.grid[mid_row, mid_col + 1] = 1
-        self.grid[mid_row, mid_col - 1] = 1
-        self.grid[mid_row + 1, mid_col] = 1
-
-    def initialise_every_other_row(self):
-        for i in range(self.n//2):
-            self.grid[i*2, :] = 1
-
-    def initialise_every_other_col(self):
-        for j in range(int(np.round(self.m/2))):
-            self.grid[:, j*2] = 1
-
-    def initialise_colliding_gliders(self):
-        mid_row = self.n//2
-        mid_col = self.m//2
-        down_right = self._create_glider(direction='down_right')
-        down_left = self._create_glider(direction='down_left')
-        up_right = self._create_glider(direction='up_right')
-        up_left = self._create_glider(direction='up_left')
-        self.grid[0:3, 0:3] = down_right
-        self.grid[self.n-3:self.n, 0:3] = up_right
-        self.grid[self.n-3:self.n, self.m-3:self.m] = up_left
-        self.grid[0:3, self.m-3:self.m] = down_left
-
-        cross = self._create_cross()
-        self.grid[mid_row-1:mid_row+2, mid_col-1:mid_col+2] = cross
-
+    def grid_from_file(self, name: str): 
+        with open(name, 'r') as f:
+            grid = []
+            for line in f.readlines():
+                grid.append(list(map(int, line.replace(".", "0").replace("O", "1").split(' ')))) 
+    
+        self.grid = np.asarray(grid)
+        self.n, self.m = self.grid.shape
 
     def find_neighbours(self, i, j):
         above_row = i - 1
@@ -144,10 +107,6 @@ class Board:
         return [self.ln]
 
     def run_animation(self, repeat=False, interval=20):
-        from matplotlib import rcParams
-
-        # configure full path for ImageMagick
-        rcParams['animation.convert_path'] = r'/usr/bin/convert'
 
         board.init_plot()
         ani = FuncAnimation(
@@ -159,11 +118,23 @@ class Board:
 
         plt.show()
     
+    def print_grid(self):
+        for i in range(self.n):
+            outrow = str(self.grid[i, :])
+            print(outrow.replace("0", ".").replace("1", "O"), end='\r')
+        print(" # "*self.n)
+
+    def terminal_animate(self, steps):
+        self.print_grid()
+        for _ in range(steps):
+            self.step()
+            self.print_grid()
+            time.sleep(0.5)
+
+
 if __name__ == "__main__":
-    board = Board(20, 20)
-    #board.initialise_mid()
-    #board.initialise_every_other_row()
-    #board.initialise_every_other_col()
-    board.initialise_colliding_gliders()
-    #board.run_animation()
-    board.generate_pngs(steps=40)
+    board = Board()
+    board.grid_from_file("50x50.input")
+    board.terminal_animate(100)
+    #board.run_animation(interval=20)
+    #board.generate_pngs(steps=40)
